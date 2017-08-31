@@ -333,6 +333,8 @@ public class Spreadsheet extends AbstractComponent implements HasComponents,
     private String srcUri;
 
     private boolean defaultColWidthSet, defaultRowHeightSet;
+    
+    private LocaleHandler localeHandler;
 
     /**
      * Container for merged regions for the currently active sheet.
@@ -5111,4 +5113,13 @@ public class Spreadsheet extends AbstractComponent implements HasComponents,
             final int minimumRowHeightForComponents) {
         this.minimumRowHeightForComponents = minimumRowHeightForComponents;
     }
+
+	public LocaleHandler getLocaleHandler() {
+		return localeHandler;
+	}
+
+	public void setLocaleHandler(LocaleHandler localeHandler) {
+		this.localeHandler = localeHandler;
+	}
+    
 }

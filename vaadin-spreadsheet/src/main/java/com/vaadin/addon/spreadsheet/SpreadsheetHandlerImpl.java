@@ -1,5 +1,24 @@
 package com.vaadin.addon.spreadsheet;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.StringTokenizer;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CreationHelper;
+import org.apache.poi.ss.usermodel.RichTextString;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellReference;
+
 /*
  * #%L
  * Vaadin Spreadsheet
@@ -21,23 +40,6 @@ import com.vaadin.addon.spreadsheet.Spreadsheet.CellValueChangeEvent;
 import com.vaadin.addon.spreadsheet.Spreadsheet.ProtectedEditEvent;
 import com.vaadin.addon.spreadsheet.client.SpreadsheetServerRpc;
 import com.vaadin.addon.spreadsheet.command.CellValueCommand;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CreationHelper;
-import org.apache.poi.ss.usermodel.RichTextString;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.ss.util.CellReference;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
 
 /**
  * Implementation of the Spreadsheet Server RPC interface.
@@ -286,7 +288,22 @@ public class SpreadsheetHandlerImpl implements SpreadsheetServerRpc {
         CellRangeAddress affectedRange = new CellRangeAddress(rowIndex,
                 rowIndex + pasteHeight - 1, colIndex, colIndex + pasteWidth - 1);
         command.captureCellRangeValues(affectedRange);
-
+        
+        String[][] valueMatrix = new String[pasteHeight][pasteWidth];
+        Object[][] returnMatrix = new String[pasteHeight][pasteWidth];
+        if (spreadsheet.getLocaleHandler() != null) {
+            for (int i = 0; i < pasteHeight; i++) {
+                String line = lines[i];
+                String[] tokens = splitOnTab(line);
+                for (int j = 0; j < pasteWidth; j++) {
+                    if (j < tokens.length) {
+                        valueMatrix[i][j] = tokens[j];
+                    }
+                }
+            }
+            returnMatrix = spreadsheet.getLocaleHandler().convertValues(valueMatrix, colIndex);
+        }
+        
         for (int i = 0; i < pasteHeight; i++) {
             String line = lines[i];
             Row row = activesheet.getRow(rowIndex + i);
@@ -300,14 +317,25 @@ public class SpreadsheetHandlerImpl implements SpreadsheetServerRpc {
                     cell = row.createCell(colIndex + j);
                 }
                 if (j < tokens.length) {
-                    String cellContent = tokens[j];
-                    Double numVal = SpreadsheetUtil.parseNumber(cell,
-                            cellContent, spreadsheet.getLocale());
-                    if (numVal != null) {
-                        cell.setCellType(Cell.CELL_TYPE_NUMERIC);
-                        cell.setCellValue(numVal);
+                	String cellContent;
+                    if (valueMatrix[0][0]==null) {
+                        cellContent = tokens[j];
+                        Double numVal = SpreadsheetUtil.parseNumber(cell,
+                                cellContent, spreadsheet.getLocale());
+                        if (numVal != null) {
+                            cell.setCellType(Cell.CELL_TYPE_NUMERIC);
+                            cell.setCellValue(numVal);
+                        } else {
+                            cell.setCellValue(cellContent);
+                        }
                     } else {
-                        cell.setCellValue(cellContent);
+                    	if (returnMatrix[i][j] instanceof BigDecimal) {
+                            BigDecimal numVal = (BigDecimal) returnMatrix[i][j];
+                            cell.setCellType(Cell.CELL_TYPE_NUMERIC);
+                            cell.setCellValue(numVal.doubleValue());
+                        } else {
+                            cell.setCellValue(returnMatrix[i][j].toString());
+                        }
                     }
                 } else {
                     cell.setCellType(Cell.CELL_TYPE_BLANK);
